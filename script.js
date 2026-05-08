@@ -6,6 +6,7 @@ const bestScoreElement = document.getElementById("best-score");
 const speedElement = document.getElementById("speed");
 const boostElement = document.getElementById("boost");
 const statusElement = document.getElementById("status");
+const screenShellElement = document.querySelector(".screen-shell");
 const touchPanel = document.querySelector(".touch-panel");
 const overlayElement = document.getElementById("overlay");
 const overlayKickerElement = document.getElementById("overlay-kicker");
@@ -19,8 +20,13 @@ const baseTickMs = 150;
 const minTickMs = 70;
 const boostDurationMs = 45000;
 const boostTickReduction = 35;
-const bonusFoodInterval = 5;
+const boostStackDurationMs = 20000;
+const maxBoostDurationMs = 120000;
+const boostWarningMs = 5000;
+const bonusFoodInterval = 4;
 const bonusFoodLifetimeMs = 9000;
+const turboScoreMultiplier = 2;
+const turboBonusFoodScore = 50;
 
 let bestScore = Number.parseInt(localStorage.getItem("retro-snake-best") || "0", 10);
 let tickDelay = baseTickMs;
@@ -142,9 +148,33 @@ function clearBonusFood() {
 }
 
 function activateSpeedBoost() {
-    speedBoostUntil = elapsedGameTime + boostDurationMs;
-    statusElement.textContent = "Turbo mode for 45 seconds.";
+    if (elapsedGameTime < speedBoostUntil) {
+        speedBoostUntil = Math.min(speedBoostUntil + boostStackDurationMs, elapsedGameTime + maxBoostDurationMs);
+        statusElement.textContent = "Turbo extended by 20 seconds.";
+    } else {
+        speedBoostUntil = elapsedGameTime + boostDurationMs;
+        statusElement.textContent = "Turbo mode for 45 seconds.";
+    }
+
     playBoostSound();
+    updateTurboState();
+}
+
+function updateTurboState() {
+    const turboRemainingMs = speedBoostUntil - elapsedGameTime;
+    const turboActive = turboRemainingMs > 0;
+    const turboWarning = turboRemainingMs > 0 && turboRemainingMs <= boostWarningMs;
+
+    screenShellElement.classList.toggle("turbo-active", turboActive);
+    screenShellElement.classList.toggle("turbo-warning", turboWarning);
+}
+
+function getScoreValue(basePoints) {
+    if (elapsedGameTime < speedBoostUntil) {
+        return basePoints * turboScoreMultiplier;
+    }
+
+    return basePoints;
 }
 
 function resetGame() {
@@ -175,6 +205,7 @@ function resetGame() {
         ? "Collect blocks. Avoid walls and yourself."
         : "Press Enter to start";
     updateOverlay();
+    updateTurboState();
     draw();
 }
 
@@ -219,9 +250,15 @@ function updateHud() {
     if (elapsedGameTime < speedBoostUntil) {
         const secondsLeft = Math.ceil((speedBoostUntil - elapsedGameTime) / 1000);
         boostElement.textContent = `${secondsLeft}s`;
+
+        if (speedBoostUntil - elapsedGameTime <= boostWarningMs) {
+            statusElement.textContent = "Turbo ending. Make this run count.";
+        }
     } else {
         boostElement.textContent = "Off";
     }
+
+    updateTurboState();
 
     if (score > bestScore) {
         bestScore = score;
@@ -288,15 +325,17 @@ function step() {
     snake.unshift(head);
 
     if (head.x === food.x && head.y === food.y) {
-        score += 10;
+        score += getScoreValue(10);
         foodsEaten += 1;
         normalTickDelay = Math.max(minTickMs, normalTickDelay - 4);
         food = randomFoodPosition(bonusFood ? [bonusFood] : []);
         maybeSpawnBonusFood();
-        statusElement.textContent = "Nice. Keep going.";
+        statusElement.textContent = elapsedGameTime < speedBoostUntil
+            ? `Turbo x${turboScoreMultiplier} points.`
+            : "Nice. Keep going.";
         playFoodSound();
     } else if (bonusFood && head.x === bonusFood.x && head.y === bonusFood.y) {
-        score += 25;
+        score += getScoreValue(turboBonusFoodScore);
         activateSpeedBoost();
         clearBonusFood();
     } else {
@@ -387,6 +426,7 @@ function loop(timestamp) {
         if (speedBoostUntil && elapsedGameTime >= speedBoostUntil) {
             speedBoostUntil = 0;
             statusElement.textContent = "Turbo ended. Normal speed restored.";
+            updateTurboState();
         }
 
         updateHud();
