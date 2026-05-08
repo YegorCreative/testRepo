@@ -5,6 +5,12 @@ const scoreElement = document.getElementById("score");
 const bestScoreElement = document.getElementById("best-score");
 const speedElement = document.getElementById("speed");
 const statusElement = document.getElementById("status");
+const touchPanel = document.querySelector(".touch-panel");
+const overlayElement = document.getElementById("overlay");
+const overlayKickerElement = document.getElementById("overlay-kicker");
+const overlayTitleElement = document.getElementById("overlay-title");
+const overlayCopyElement = document.getElementById("overlay-copy");
+const overlayButtonElement = document.getElementById("overlay-button");
 
 const gridSize = 16;
 const tileCount = canvas.width / gridSize;
@@ -18,6 +24,7 @@ let accumulator = 0;
 let gameStarted = false;
 let gameOver = false;
 let isPaused = false;
+let audioContext;
 
 let snake;
 let direction;
@@ -26,6 +33,59 @@ let food;
 let score;
 
 bestScoreElement.textContent = String(bestScore);
+
+function playTone(frequency, duration, volume, type = "square") {
+    const AudioContextClass = window.AudioContext || window.webkitAudioContext;
+
+    if (!AudioContextClass) {
+        return;
+    }
+
+    if (!audioContext) {
+        audioContext = new AudioContextClass();
+    }
+
+    if (audioContext.state === "suspended") {
+        audioContext.resume().catch(() => {});
+    }
+
+    const oscillator = audioContext.createOscillator();
+    const gainNode = audioContext.createGain();
+    const startAt = audioContext.currentTime;
+    const endAt = startAt + duration;
+
+    oscillator.type = type;
+    oscillator.frequency.setValueAtTime(frequency, startAt);
+
+    gainNode.gain.setValueAtTime(0.0001, startAt);
+    gainNode.gain.exponentialRampToValueAtTime(volume, startAt + 0.01);
+    gainNode.gain.exponentialRampToValueAtTime(0.0001, endAt);
+
+    oscillator.connect(gainNode);
+    gainNode.connect(audioContext.destination);
+
+    oscillator.start(startAt);
+    oscillator.stop(endAt);
+}
+
+function playStartSound() {
+    playTone(330, 0.08, 0.03);
+    playTone(440, 0.12, 0.025, "triangle");
+}
+
+function playFoodSound() {
+    playTone(520, 0.06, 0.025);
+    playTone(660, 0.08, 0.02, "triangle");
+}
+
+function playPauseSound() {
+    playTone(isPaused ? 220 : 320, 0.07, 0.02, "sawtooth");
+}
+
+function playGameOverSound() {
+    playTone(190, 0.18, 0.03, "sawtooth");
+    playTone(150, 0.24, 0.025, "triangle");
+}
 
 function randomFoodPosition() {
     let nextFood;
@@ -60,7 +120,38 @@ function resetGame() {
     statusElement.textContent = gameStarted
         ? "Collect blocks. Avoid walls and yourself."
         : "Press Enter to start";
+    updateOverlay();
     draw();
+}
+
+function updateOverlay() {
+    overlayElement.className = "overlay";
+
+    if (!gameStarted) {
+        overlayElement.classList.add("overlay-start", "is-visible");
+        overlayKickerElement.textContent = "Arcade Classic";
+        overlayTitleElement.textContent = "Retro Snake";
+        overlayCopyElement.textContent = "Eat the blocks. Avoid the walls. Survive longer than the last run.";
+        overlayButtonElement.textContent = "Press Start";
+        return;
+    }
+
+    if (gameOver) {
+        overlayElement.classList.add("overlay-gameover", "is-visible");
+        overlayKickerElement.textContent = "Transmission Lost";
+        overlayTitleElement.textContent = "Game Over";
+        overlayCopyElement.textContent = `Final score ${score}. Press Enter or tap below for another run.`;
+        overlayButtonElement.textContent = "Play Again";
+        return;
+    }
+}
+
+function startGame() {
+    resetGame();
+    gameStarted = true;
+    statusElement.textContent = "Game running.";
+    playStartSound();
+    updateOverlay();
 }
 
 function updateHud() {
@@ -84,6 +175,33 @@ function setDirection(nextX, nextY) {
     pendingDirection = { x: nextX, y: nextY };
 }
 
+function togglePause() {
+    if (!gameStarted || gameOver) {
+        return;
+    }
+
+    isPaused = !isPaused;
+    statusElement.textContent = isPaused ? "Paused." : "Game running.";
+    playPauseSound();
+    draw();
+}
+
+function handleDirectionInput(nextDirection) {
+    if (!gameStarted || gameOver || isPaused) {
+        return;
+    }
+
+    if (nextDirection === "up") {
+        setDirection(0, -1);
+    } else if (nextDirection === "down") {
+        setDirection(0, 1);
+    } else if (nextDirection === "left") {
+        setDirection(-1, 0);
+    } else if (nextDirection === "right") {
+        setDirection(1, 0);
+    }
+}
+
 function step() {
     direction = pendingDirection;
 
@@ -98,6 +216,8 @@ function step() {
     if (hitWall || hitSelf) {
         gameOver = true;
         statusElement.textContent = "Game over. Press Enter to restart.";
+        playGameOverSound();
+        updateOverlay();
         draw();
         return;
     }
@@ -109,6 +229,7 @@ function step() {
         tickDelay = Math.max(minTickMs, tickDelay - 4);
         food = randomFoodPosition();
         statusElement.textContent = "Nice. Keep going.";
+        playFoodSound();
     } else {
         snake.pop();
     }
@@ -150,7 +271,7 @@ function drawSnake() {
 }
 
 function drawMessage() {
-    if (!gameStarted || isPaused || gameOver) {
+    if (isPaused) {
         context.fillStyle = "rgba(7, 10, 6, 0.7)";
         context.fillRect(40, 152, canvas.width - 80, 80);
 
@@ -158,15 +279,9 @@ function drawMessage() {
         context.textAlign = "center";
         context.font = '12px "Press Start 2P"';
 
-        const message = gameOver
-            ? "GAME OVER"
-            : isPaused
-                ? "PAUSED"
-                : "PRESS ENTER";
-
-        context.fillText(message, canvas.width / 2, 185);
+        context.fillText("PAUSED", canvas.width / 2, 185);
         context.font = '8px "Press Start 2P"';
-        context.fillText("RETRO SNAKE", canvas.width / 2, 208);
+        context.fillText("SPACE TO RESUME", canvas.width / 2, 208);
     }
 }
 
@@ -209,9 +324,7 @@ document.addEventListener("keydown", (event) => {
     }
 
     if (key === "enter") {
-        resetGame();
-        gameStarted = true;
-        statusElement.textContent = "Game running.";
+        startGame();
         return;
     }
 
@@ -220,25 +333,41 @@ document.addEventListener("keydown", (event) => {
     }
 
     if (key === " ") {
-        isPaused = !isPaused;
-        statusElement.textContent = isPaused ? "Paused." : "Game running.";
-        draw();
-        return;
-    }
-
-    if (isPaused) {
+        togglePause();
         return;
     }
 
     if (key === "arrowup" || key === "w") {
-        setDirection(0, -1);
+        handleDirectionInput("up");
     } else if (key === "arrowdown" || key === "s") {
-        setDirection(0, 1);
+        handleDirectionInput("down");
     } else if (key === "arrowleft" || key === "a") {
-        setDirection(-1, 0);
+        handleDirectionInput("left");
     } else if (key === "arrowright" || key === "d") {
-        setDirection(1, 0);
+        handleDirectionInput("right");
     }
+});
+
+touchPanel.addEventListener("click", (event) => {
+    const button = event.target.closest("button");
+
+    if (!button) {
+        return;
+    }
+
+    const action = button.dataset.action;
+    const nextDirection = button.dataset.direction;
+
+    if (action === "pause") {
+        togglePause();
+        return;
+    }
+
+    handleDirectionInput(nextDirection);
+});
+
+overlayButtonElement.addEventListener("click", () => {
+    startGame();
 });
 
 resetGame();

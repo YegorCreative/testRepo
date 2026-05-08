@@ -30,10 +30,24 @@
             <div class="screen-shell">
                 <canvas id="game" width="384" height="384" aria-label="Retro snake game"></canvas>
                 <div class="scanlines" aria-hidden="true"></div>
+                <div class="overlay overlay-start is-visible" id="overlay" aria-live="polite">
+                    <p class="overlay-kicker" id="overlay-kicker">Arcade Classic</p>
+                    <h1 class="overlay-title" id="overlay-title">Retro Snake</h1>
+                    <p class="overlay-copy" id="overlay-copy">Eat the blocks. Avoid the walls. Survive longer than the last run.</p>
+                    <button class="overlay-button" id="overlay-button" type="button">Press Start</button>
+                </div>
                 <div class="status-panel">
                     <p id="status">Press Enter to start</p>
                     <p class="controls">Arrows or WASD to move. Space pauses.</p>
                 </div>
+            </div>
+
+            <div class="touch-panel" aria-label="Touch controls">
+                <button class="touch-button touch-up" type="button" data-direction="up">Up</button>
+                <button class="touch-button touch-left" type="button" data-direction="left">Left</button>
+                <button class="touch-button touch-pause" type="button" data-action="pause">Pause</button>
+                <button class="touch-button touch-right" type="button" data-direction="right">Right</button>
+                <button class="touch-button touch-down" type="button" data-direction="down">Down</button>
             </div>
         </section>
     </main>

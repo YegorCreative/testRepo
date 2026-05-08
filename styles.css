@@ -73,6 +73,73 @@ body {
         inset 0 0 18px var(--screen-glow);
 }
 
+.overlay {
+    position: absolute;
+    inset: 1rem;
+    display: grid;
+    place-items: center;
+    align-content: center;
+    gap: 0.9rem;
+    padding: 2rem 1.5rem;
+    text-align: center;
+    background: linear-gradient(180deg, rgba(10, 15, 8, 0.76), rgba(10, 15, 8, 0.9));
+    opacity: 0;
+    visibility: hidden;
+    transition: opacity 180ms ease;
+    z-index: 2;
+}
+
+.overlay.is-visible {
+    opacity: 1;
+    visibility: visible;
+}
+
+.overlay-start {
+    animation: screen-flicker 1.8s steps(2) infinite;
+}
+
+.overlay-gameover {
+    animation: gameover-pulse 700ms steps(2) 4;
+}
+
+.overlay-kicker {
+    margin: 0;
+    color: #f9db70;
+    font-size: 0.6rem;
+    letter-spacing: 0.08em;
+}
+
+.overlay-title {
+    margin: 0;
+    font-size: clamp(1.2rem, 4vw, 1.8rem);
+    line-height: 1.4;
+    text-transform: uppercase;
+    text-shadow: 0 0 12px rgba(134, 242, 91, 0.22);
+}
+
+.overlay-copy {
+    margin: 0;
+    max-width: 28ch;
+    font-size: 0.58rem;
+    line-height: 1.9;
+}
+
+.overlay-button {
+    border: 3px solid #6d7e5d;
+    border-radius: 999px;
+    padding: 0.95rem 1.4rem;
+    background: linear-gradient(180deg, #31402a, #1c2518);
+    color: var(--text);
+    font: inherit;
+    font-size: 0.58rem;
+    text-transform: uppercase;
+    box-shadow: 0 0 24px rgba(134, 242, 91, 0.08);
+}
+
+.overlay-button:active {
+    transform: translateY(1px);
+}
+
 canvas {
     display: block;
     width: 100%;
@@ -109,6 +176,76 @@ canvas {
     color: var(--danger);
 }
 
+@keyframes screen-flicker {
+    0%, 100% {
+        opacity: 1;
+    }
+
+    50% {
+        opacity: 0.9;
+    }
+}
+
+@keyframes gameover-pulse {
+    0%, 100% {
+        background: linear-gradient(180deg, rgba(10, 15, 8, 0.76), rgba(10, 15, 8, 0.9));
+    }
+
+    50% {
+        background: linear-gradient(180deg, rgba(65, 20, 8, 0.88), rgba(20, 8, 8, 0.95));
+    }
+}
+
+.touch-panel {
+    display: grid;
+    grid-template-columns: repeat(3, minmax(0, 1fr));
+    gap: 0.6rem;
+    margin-top: 1rem;
+    grid-template-areas:
+        ". up ."
+        "left pause right"
+        ". down .";
+}
+
+.touch-button {
+    border: 3px solid #5c6b4e;
+    border-radius: 10px;
+    padding: 0.9rem 0.5rem;
+    background: linear-gradient(180deg, #2f3b27, #1a2216);
+    color: var(--text);
+    font: inherit;
+    font-size: 0.55rem;
+    text-transform: uppercase;
+    box-shadow: inset 0 0 0 2px rgba(255, 255, 255, 0.04);
+    touch-action: manipulation;
+}
+
+.touch-button:active {
+    transform: translateY(1px);
+    background: linear-gradient(180deg, #25311f, #141a11);
+}
+
+.touch-up {
+    grid-area: up;
+}
+
+.touch-left {
+    grid-area: left;
+}
+
+.touch-pause {
+    grid-area: pause;
+    color: var(--danger);
+}
+
+.touch-right {
+    grid-area: right;
+}
+
+.touch-down {
+    grid-area: down;
+}
+
 @media (max-width: 540px) {
     .cabinet {
         width: 96vw;
@@ -127,5 +264,20 @@ canvas {
 
     .status-panel {
         font-size: 0.52rem;
+    }
+
+    .overlay {
+        padding: 1.4rem 1rem;
+    }
+
+    .overlay-copy,
+    .overlay-button,
+    .overlay-kicker {
+        font-size: 0.5rem;
+    }
+
+    .touch-button {
+        font-size: 0.48rem;
+        padding: 0.8rem 0.35rem;
     }
 }
