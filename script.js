@@ -4,6 +4,7 @@ const context = canvas.getContext("2d");
 const scoreElement = document.getElementById("score");
 const bestScoreElement = document.getElementById("best-score");
 const speedElement = document.getElementById("speed");
+const boostElement = document.getElementById("boost");
 const statusElement = document.getElementById("status");
 const touchPanel = document.querySelector(".touch-panel");
 const overlayElement = document.getElementById("overlay");
@@ -16,6 +17,10 @@ const gridSize = 16;
 const tileCount = canvas.width / gridSize;
 const baseTickMs = 150;
 const minTickMs = 70;
+const boostDurationMs = 45000;
+const boostTickReduction = 35;
+const bonusFoodInterval = 5;
+const bonusFoodLifetimeMs = 9000;
 
 let bestScore = Number.parseInt(localStorage.getItem("retro-snake-best") || "0", 10);
 let tickDelay = baseTickMs;
@@ -25,11 +30,17 @@ let gameStarted = false;
 let gameOver = false;
 let isPaused = false;
 let audioContext;
+let elapsedGameTime = 0;
+let speedBoostUntil = 0;
+let normalTickDelay = baseTickMs;
+let foodsEaten = 0;
 
 let snake;
 let direction;
 let pendingDirection;
 let food;
+let bonusFood;
+let bonusFoodExpiresAt = 0;
 let score;
 
 bestScoreElement.textContent = String(bestScore);
@@ -87,7 +98,12 @@ function playGameOverSound() {
     playTone(150, 0.24, 0.025, "triangle");
 }
 
-function randomFoodPosition() {
+function playBoostSound() {
+    playTone(720, 0.06, 0.03, "triangle");
+    playTone(880, 0.1, 0.028);
+}
+
+function randomFoodPosition(extraBlockedTiles = []) {
     let nextFood;
 
     do {
@@ -95,9 +111,40 @@ function randomFoodPosition() {
             x: Math.floor(Math.random() * tileCount),
             y: Math.floor(Math.random() * tileCount),
         };
-    } while (snake.some((segment) => segment.x === nextFood.x && segment.y === nextFood.y));
+    } while (
+        snake.some((segment) => segment.x === nextFood.x && segment.y === nextFood.y)
+        || extraBlockedTiles.some((tile) => tile.x === nextFood.x && tile.y === nextFood.y)
+    );
 
     return nextFood;
+}
+
+function getCurrentTickDelay() {
+    if (elapsedGameTime < speedBoostUntil) {
+        return Math.max(minTickMs, normalTickDelay - boostTickReduction);
+    }
+
+    return normalTickDelay;
+}
+
+function maybeSpawnBonusFood() {
+    if (bonusFood || foodsEaten === 0 || foodsEaten % bonusFoodInterval !== 0) {
+        return;
+    }
+
+    bonusFood = randomFoodPosition([food]);
+    bonusFoodExpiresAt = elapsedGameTime + bonusFoodLifetimeMs;
+}
+
+function clearBonusFood() {
+    bonusFood = null;
+    bonusFoodExpiresAt = 0;
+}
+
+function activateSpeedBoost() {
+    speedBoostUntil = elapsedGameTime + boostDurationMs;
+    statusElement.textContent = "Turbo mode for 45 seconds.";
+    playBoostSound();
 }
 
 function resetGame() {
@@ -109,14 +156,21 @@ function resetGame() {
     direction = { x: 1, y: 0 };
     pendingDirection = direction;
     food = randomFoodPosition();
+    bonusFood = null;
+    bonusFoodExpiresAt = 0;
     score = 0;
     tickDelay = baseTickMs;
+    normalTickDelay = baseTickMs;
     accumulator = 0;
     lastFrameTime = 0;
+    elapsedGameTime = 0;
+    speedBoostUntil = 0;
+    foodsEaten = 0;
     gameOver = false;
     isPaused = false;
     scoreElement.textContent = "0";
     speedElement.textContent = "1";
+    boostElement.textContent = "Off";
     statusElement.textContent = gameStarted
         ? "Collect blocks. Avoid walls and yourself."
         : "Press Enter to start";
@@ -157,8 +211,17 @@ function startGame() {
 function updateHud() {
     scoreElement.textContent = String(score);
 
+    tickDelay = getCurrentTickDelay();
+
     const speedLevel = Math.max(1, Math.floor((baseTickMs - tickDelay) / 10) + 1);
     speedElement.textContent = String(speedLevel);
+
+    if (elapsedGameTime < speedBoostUntil) {
+        const secondsLeft = Math.ceil((speedBoostUntil - elapsedGameTime) / 1000);
+        boostElement.textContent = `${secondsLeft}s`;
+    } else {
+        boostElement.textContent = "Off";
+    }
 
     if (score > bestScore) {
         bestScore = score;
@@ -226,10 +289,16 @@ function step() {
 
     if (head.x === food.x && head.y === food.y) {
         score += 10;
-        tickDelay = Math.max(minTickMs, tickDelay - 4);
-        food = randomFoodPosition();
+        foodsEaten += 1;
+        normalTickDelay = Math.max(minTickMs, normalTickDelay - 4);
+        food = randomFoodPosition(bonusFood ? [bonusFood] : []);
+        maybeSpawnBonusFood();
         statusElement.textContent = "Nice. Keep going.";
         playFoodSound();
+    } else if (bonusFood && head.x === bonusFood.x && head.y === bonusFood.y) {
+        score += 25;
+        activateSpeedBoost();
+        clearBonusFood();
     } else {
         snake.pop();
     }
@@ -261,6 +330,14 @@ function drawGrid() {
 function drawFood() {
     context.fillStyle = "#f9db70";
     context.fillRect(food.x * gridSize + 3, food.y * gridSize + 3, gridSize - 6, gridSize - 6);
+
+    if (bonusFood) {
+        context.fillStyle = "#ff7a3d";
+        context.fillRect(bonusFood.x * gridSize + 2, bonusFood.y * gridSize + 2, gridSize - 4, gridSize - 4);
+
+        context.fillStyle = "#ffd8c2";
+        context.fillRect(bonusFood.x * gridSize + 5, bonusFood.y * gridSize + 5, gridSize - 10, gridSize - 10);
+    }
 }
 
 function drawSnake() {
@@ -301,6 +378,18 @@ function loop(timestamp) {
     lastFrameTime = timestamp;
 
     if (gameStarted && !gameOver && !isPaused) {
+        elapsedGameTime += delta;
+
+        if (bonusFood && elapsedGameTime >= bonusFoodExpiresAt) {
+            clearBonusFood();
+        }
+
+        if (speedBoostUntil && elapsedGameTime >= speedBoostUntil) {
+            speedBoostUntil = 0;
+            statusElement.textContent = "Turbo ended. Normal speed restored.";
+        }
+
+        updateHud();
         accumulator += delta;
 
         while (accumulator >= tickDelay) {
