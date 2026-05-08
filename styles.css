@@ -46,11 +46,11 @@ body {
 
 .hud {
     display: grid;
-    grid-template-columns: repeat(4, minmax(0, 1fr));
+    grid-template-columns: repeat(5, minmax(0, 1fr));
     gap: 0.75rem;
     margin-bottom: 1rem;
     text-align: center;
-    font-size: 0.65rem;
+    font-size: 0.6rem;
 }
 
 .hud-label {
@@ -294,8 +294,8 @@ canvas {
     }
 
     .hud {
-        gap: 0.5rem;
-        font-size: 0.52rem;
+        gap: 0.3rem;
+        font-size: 0.42rem;
     }
 
     .status-panel {

@@ -5,6 +5,7 @@ const scoreElement = document.getElementById("score");
 const bestScoreElement = document.getElementById("best-score");
 const speedElement = document.getElementById("speed");
 const boostElement = document.getElementById("boost");
+const multElement = document.getElementById("mult");
 const statusElement = document.getElementById("status");
 const screenShellElement = document.querySelector(".screen-shell");
 const touchPanel = document.querySelector(".touch-panel");
@@ -26,7 +27,32 @@ const boostWarningMs = 5000;
 const bonusFoodInterval = 4;
 const bonusFoodLifetimeMs = 9000;
 const turboScoreMultiplier = 2;
-const turboBonusFoodScore = 50;
+const scoreRushDurationMs = 15000;
+const scoreRushMultiplier = 3;
+
+const BONUS_TYPES = [
+    {
+        id: "turbo",
+        label: "Turbo",
+        color: "#ff7a3d",
+        highlightColor: "#ffd8c2",
+        baseScore: 50,
+    },
+    {
+        id: "rush",
+        label: "Rush",
+        color: "#cc44ff",
+        highlightColor: "#eeb2ff",
+        baseScore: 30,
+    },
+    {
+        id: "mega",
+        label: "Mega",
+        color: "#22ddff",
+        highlightColor: "#b2f4ff",
+        baseScore: 120,
+    },
+];
 
 let bestScore = Number.parseInt(localStorage.getItem("retro-snake-best") || "0", 10);
 let tickDelay = baseTickMs;
@@ -40,6 +66,8 @@ let elapsedGameTime = 0;
 let speedBoostUntil = 0;
 let normalTickDelay = baseTickMs;
 let foodsEaten = 0;
+let scoreRushUntil = 0;
+let lastWarningSecond = -1;
 
 let snake;
 let direction;
@@ -109,6 +137,22 @@ function playBoostSound() {
     playTone(880, 0.1, 0.028);
 }
 
+function playScoreRushSound() {
+    playTone(880, 0.05, 0.025, "triangle");
+    playTone(1100, 0.08, 0.022, "triangle");
+    playTone(1320, 0.1, 0.02, "triangle");
+}
+
+function playMegaSound() {
+    playTone(440, 0.05, 0.025);
+    playTone(660, 0.07, 0.022);
+    playTone(880, 0.09, 0.02, "triangle");
+}
+
+function playWarningTickSound() {
+    playTone(440, 0.04, 0.022, "square");
+}
+
 function randomFoodPosition(extraBlockedTiles = []) {
     let nextFood;
 
@@ -138,7 +182,9 @@ function maybeSpawnBonusFood() {
         return;
     }
 
-    bonusFood = randomFoodPosition([food]);
+    const type = BONUS_TYPES[Math.floor(Math.random() * BONUS_TYPES.length)];
+    const position = randomFoodPosition([food]);
+    bonusFood = { x: position.x, y: position.y, type };
     bonusFoodExpiresAt = elapsedGameTime + bonusFoodLifetimeMs;
 }
 
@@ -147,12 +193,13 @@ function clearBonusFood() {
     bonusFoodExpiresAt = 0;
 }
 
-function activateSpeedBoost() {
+function activateTurbo() {
     if (elapsedGameTime < speedBoostUntil) {
         speedBoostUntil = Math.min(speedBoostUntil + boostStackDurationMs, elapsedGameTime + maxBoostDurationMs);
         statusElement.textContent = "Turbo extended by 20 seconds.";
     } else {
         speedBoostUntil = elapsedGameTime + boostDurationMs;
+        lastWarningSecond = -1;
         statusElement.textContent = "Turbo mode for 45 seconds.";
     }
 
@@ -160,21 +207,56 @@ function activateSpeedBoost() {
     updateTurboState();
 }
 
+function applyBonusFoodEffect(bonusType) {
+    const earned = getScoreValue(bonusType.baseScore);
+    score += earned;
+
+    if (bonusType.id === "turbo") {
+        activateTurbo();
+    } else if (bonusType.id === "rush") {
+        scoreRushUntil = elapsedGameTime + scoreRushDurationMs;
+        statusElement.textContent = `Score Rush! x${scoreRushMultiplier} points for 15 seconds.`;
+        playScoreRushSound();
+    } else if (bonusType.id === "mega") {
+        statusElement.textContent = `Mega fruit! +${earned} pts.`;
+        playMegaSound();
+    }
+}
+
 function updateTurboState() {
     const turboRemainingMs = speedBoostUntil - elapsedGameTime;
     const turboActive = turboRemainingMs > 0;
     const turboWarning = turboRemainingMs > 0 && turboRemainingMs <= boostWarningMs;
 
-    screenShellElement.classList.toggle("turbo-active", turboActive);
+    screenShellElement.classList.toggle("turbo-active", turboActive && !turboWarning);
     screenShellElement.classList.toggle("turbo-warning", turboWarning);
+
+    if (turboWarning) {
+        const secondsLeft = Math.ceil(turboRemainingMs / 1000);
+
+        if (secondsLeft !== lastWarningSecond) {
+            lastWarningSecond = secondsLeft;
+            playWarningTickSound();
+        }
+    }
+}
+
+function getActiveMultiplier() {
+    let mult = 1;
+
+    if (elapsedGameTime < speedBoostUntil) {
+        mult *= turboScoreMultiplier;
+    }
+
+    if (elapsedGameTime < scoreRushUntil) {
+        mult *= scoreRushMultiplier;
+    }
+
+    return mult;
 }
 
 function getScoreValue(basePoints) {
-    if (elapsedGameTime < speedBoostUntil) {
-        return basePoints * turboScoreMultiplier;
-    }
-
-    return basePoints;
+    return basePoints * getActiveMultiplier();
 }
 
 function resetGame() {
@@ -201,6 +283,10 @@ function resetGame() {
     scoreElement.textContent = "0";
     speedElement.textContent = "1";
     boostElement.textContent = "Off";
+    multElement.textContent = "x1";
+    multElement.style.color = "";
+    scoreRushUntil = 0;
+    lastWarningSecond = -1;
     statusElement.textContent = gameStarted
         ? "Collect blocks. Avoid walls and yourself."
         : "Press Enter to start";
@@ -257,6 +343,10 @@ function updateHud() {
     } else {
         boostElement.textContent = "Off";
     }
+
+    const activeMult = getActiveMultiplier();
+    multElement.textContent = `x${activeMult}`;
+    multElement.style.color = activeMult > 1 ? "#f9db70" : "";
 
     updateTurboState();
 
@@ -330,13 +420,11 @@ function step() {
         normalTickDelay = Math.max(minTickMs, normalTickDelay - 4);
         food = randomFoodPosition(bonusFood ? [bonusFood] : []);
         maybeSpawnBonusFood();
-        statusElement.textContent = elapsedGameTime < speedBoostUntil
-            ? `Turbo x${turboScoreMultiplier} points.`
-            : "Nice. Keep going.";
+        const mult = getActiveMultiplier();
+        statusElement.textContent = mult > 1 ? `x${mult} points!` : "Nice. Keep going.";
         playFoodSound();
     } else if (bonusFood && head.x === bonusFood.x && head.y === bonusFood.y) {
-        score += getScoreValue(turboBonusFoodScore);
-        activateSpeedBoost();
+        applyBonusFoodEffect(bonusFood.type);
         clearBonusFood();
     } else {
         snake.pop();
@@ -371,10 +459,10 @@ function drawFood() {
     context.fillRect(food.x * gridSize + 3, food.y * gridSize + 3, gridSize - 6, gridSize - 6);
 
     if (bonusFood) {
-        context.fillStyle = "#ff7a3d";
+        context.fillStyle = bonusFood.type.color;
         context.fillRect(bonusFood.x * gridSize + 2, bonusFood.y * gridSize + 2, gridSize - 4, gridSize - 4);
 
-        context.fillStyle = "#ffd8c2";
+        context.fillStyle = bonusFood.type.highlightColor;
         context.fillRect(bonusFood.x * gridSize + 5, bonusFood.y * gridSize + 5, gridSize - 10, gridSize - 10);
     }
 }
@@ -425,8 +513,14 @@ function loop(timestamp) {
 
         if (speedBoostUntil && elapsedGameTime >= speedBoostUntil) {
             speedBoostUntil = 0;
+            lastWarningSecond = -1;
             statusElement.textContent = "Turbo ended. Normal speed restored.";
             updateTurboState();
+        }
+
+        if (scoreRushUntil && elapsedGameTime >= scoreRushUntil) {
+            scoreRushUntil = 0;
+            statusElement.textContent = "Score Rush ended.";
         }
 
         updateHud();
