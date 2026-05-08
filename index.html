@@ -1,0 +1,43 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Retro Snake</title>
+    <link rel="preconnect" href="https://fonts.googleapis.com">
+    <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+    <link href="https://fonts.googleapis.com/css2?family=Press+Start+2P&display=swap" rel="stylesheet">
+    <link rel="stylesheet" href="styles.css">
+</head>
+<body>
+    <main class="cabinet">
+        <section class="screen-frame">
+            <header class="hud">
+                <div>
+                    <span class="hud-label">Score</span>
+                    <strong id="score">0</strong>
+                </div>
+                <div>
+                    <span class="hud-label">Best</span>
+                    <strong id="best-score">0</strong>
+                </div>
+                <div>
+                    <span class="hud-label">Speed</span>
+                    <strong id="speed">1</strong>
+                </div>
+            </header>
+
+            <div class="screen-shell">
+                <canvas id="game" width="384" height="384" aria-label="Retro snake game"></canvas>
+                <div class="scanlines" aria-hidden="true"></div>
+                <div class="status-panel">
+                    <p id="status">Press Enter to start</p>
+                    <p class="controls">Arrows or WASD to move. Space pauses.</p>
+                </div>
+            </div>
+        </section>
+    </main>
+
+    <script src="script.js"></script>
+</body>
+</html>

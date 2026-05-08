@@ -1,0 +1,131 @@
+:root {
+    --bg: #10150f;
+    --frame: #242a1f;
+    --frame-edge: #4b5640;
+    --screen: #172113;
+    --screen-glow: rgba(136, 255, 114, 0.12);
+    --text: #c8ffb3;
+    --accent: #86f25b;
+    --accent-dim: #5e9c42;
+    --danger: #f9db70;
+}
+
+* {
+    box-sizing: border-box;
+}
+
+body {
+    margin: 0;
+    min-height: 100vh;
+    display: grid;
+    place-items: center;
+    background:
+        radial-gradient(circle at top, rgba(90, 115, 75, 0.28), transparent 35%),
+        linear-gradient(180deg, #1b2417 0%, #0b0f0a 100%);
+    color: var(--text);
+    font-family: "Press Start 2P", monospace;
+}
+
+.cabinet {
+    width: min(92vw, 680px);
+    padding: 1.25rem;
+    border: 4px solid var(--frame-edge);
+    border-radius: 20px;
+    background: linear-gradient(180deg, #2d3429, #171b15);
+    box-shadow:
+        0 20px 50px rgba(0, 0, 0, 0.45),
+        inset 0 0 0 4px rgba(255, 255, 255, 0.05);
+}
+
+.screen-frame {
+    padding: 1rem;
+    border: 3px solid #67715d;
+    border-radius: 12px;
+    background: linear-gradient(180deg, #30372c, #1c2219);
+}
+
+.hud {
+    display: grid;
+    grid-template-columns: repeat(3, minmax(0, 1fr));
+    gap: 0.75rem;
+    margin-bottom: 1rem;
+    text-align: center;
+    font-size: 0.65rem;
+}
+
+.hud-label {
+    display: block;
+    margin-bottom: 0.65rem;
+    color: #8cb17a;
+}
+
+.screen-shell {
+    position: relative;
+    overflow: hidden;
+    padding: 1rem;
+    border: 4px solid #56614b;
+    border-radius: 10px;
+    background:
+        radial-gradient(circle at center, rgba(84, 221, 69, 0.09), transparent 55%),
+        var(--screen);
+    box-shadow:
+        inset 0 0 32px rgba(0, 0, 0, 0.65),
+        inset 0 0 18px var(--screen-glow);
+}
+
+canvas {
+    display: block;
+    width: 100%;
+    max-width: 384px;
+    margin: 0 auto;
+    border: 3px solid #31402a;
+    background: #10180d;
+    image-rendering: pixelated;
+    box-shadow: 0 0 28px rgba(134, 242, 91, 0.1);
+}
+
+.scanlines {
+    position: absolute;
+    inset: 1rem;
+    pointer-events: none;
+    background: repeating-linear-gradient(
+        180deg,
+        rgba(255, 255, 255, 0.025) 0,
+        rgba(255, 255, 255, 0.025) 2px,
+        transparent 2px,
+        transparent 6px
+    );
+    mix-blend-mode: soft-light;
+}
+
+.status-panel {
+    margin-top: 1rem;
+    text-align: center;
+    line-height: 1.7;
+    font-size: 0.65rem;
+}
+
+.controls {
+    color: var(--danger);
+}
+
+@media (max-width: 540px) {
+    .cabinet {
+        width: 96vw;
+        padding: 0.85rem;
+    }
+
+    .screen-frame,
+    .screen-shell {
+        padding: 0.75rem;
+    }
+
+    .hud {
+        gap: 0.5rem;
+        font-size: 0.52rem;
+    }
+
+    .status-panel {
+        font-size: 0.52rem;
+    }
+}
